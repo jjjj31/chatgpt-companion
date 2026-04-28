@@ -1,0 +1,133 @@
+:host {
+  all: initial;
+}
+
+.timeline {
+  position: fixed;
+  top: 96px;
+  right: 14px;
+  bottom: 96px;
+  z-index: 2147483646;
+  display: flex;
+  width: 36px;
+  justify-content: center;
+  pointer-events: none;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.timeline[hidden] {
+  display: none;
+}
+
+.timeline__rail {
+  position: relative;
+  width: 24px;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.timeline__toggle {
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  z-index: 2;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid rgb(15 23 42 / 16%);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 6px 18px rgb(15 23 42 / 18%);
+  cursor: pointer;
+  font: 700 11px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  pointer-events: auto;
+  transform: translateX(-50%);
+}
+
+.timeline__toggle:hover,
+.timeline__toggle:focus-visible {
+  border-color: #38bdf8;
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.timeline__toggle[aria-pressed="true"] {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.timeline__rail::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 2px;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 22%);
+  content: "";
+  transform: translateX(-50%);
+}
+
+.timeline__node {
+  position: absolute;
+  left: 50%;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #64748b;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 24%);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+
+.timeline__node:hover,
+.timeline__node:focus-visible {
+  background: #0f172a;
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.timeline__node--user {
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  background: #2563eb;
+}
+
+.timeline__node--assistant {
+  background: #059669;
+}
+
+.timeline__node--active {
+  width: 16px;
+  height: 16px;
+  background: #f59e0b;
+}
+
+.timeline__node::after {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  display: none;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 24%);
+  content: attr(data-preview);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  transform: translateY(-50%);
+}
+
+.timeline__node:hover::after,
+.timeline__node:focus-visible::after {
+  display: block;
+}
