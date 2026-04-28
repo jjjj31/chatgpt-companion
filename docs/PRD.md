@@ -40,7 +40,6 @@
 Chrome Extension Manifest V3
 TypeScript
 Vite
-React
 content script
 MutationObserver
 IntersectionObserver
@@ -55,7 +54,7 @@ chatgpt-companion/
 ├─ package.json
 ├─ src/
 │  ├─ content/
-│  │  ├─ index.tsx
+│  │  ├─ index.ts
 │  │  ├─ selectors.ts
 │  │  ├─ timeline/
 │  │  │  ├─ TimelineManager.ts

@@ -11,7 +11,7 @@ type TimelineFilterMode = "all" | "user";
 
 const ROOT_ID = "chatgpt-companion-timeline-root";
 const MESSAGE_ID_ATTRIBUTE = "data-chatgpt-companion-message-id";
-const SCAN_DEBOUNCE_MS = 150;
+const SCAN_DEBOUNCE_MS = 300;
 
 export class TimelineManager {
   private readonly host: HTMLDivElement;
@@ -21,11 +21,14 @@ export class TimelineManager {
   private readonly toggleButton: HTMLButtonElement;
   private readonly mutationObserver: MutationObserver;
   private intersectionObserver: IntersectionObserver | null = null;
+  private mutationTarget: HTMLElement | null = null;
   private entries: TimelineEntry[] = [];
   private visibleEntries: TimelineEntry[] = [];
+  private readonly nodeButtons = new Map<string, HTMLButtonElement>();
   private activeMessageId: string | null = null;
   private scanTimer: number | null = null;
   private lastLoggedCount: number | null = null;
+  private entriesSignature = "";
   private filterMode: TimelineFilterMode = "all";
 
   constructor() {
@@ -66,16 +69,15 @@ export class TimelineManager {
     }
 
     document.documentElement.appendChild(this.host);
+    this.attachMutationObserver();
     this.scan();
-    this.mutationObserver.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
   }
 
   destroy(): void {
     this.mutationObserver.disconnect();
     this.intersectionObserver?.disconnect();
+    this.mutationTarget = null;
+    this.nodeButtons.clear();
 
     if (this.scanTimer !== null) {
       window.clearTimeout(this.scanTimer);
@@ -96,29 +98,44 @@ export class TimelineManager {
   }
 
   private scan(): void {
+    this.attachMutationObserver();
     const messageElements = this.findMessageElements();
 
     this.entries = messageElements.map((element, index) => {
       const id = this.ensureMessageId(element, index);
+      const role = this.detectRole(element);
 
       return {
         element,
         item: {
           id,
-          role: this.detectRole(element),
+          role,
           preview: this.createPreview(element, index),
           index
         }
       };
     });
 
+    const nextSignature = this.createEntriesSignature(this.entries);
+
+    if (nextSignature === this.entriesSignature) {
+      this.logMessageCount();
+      return;
+    }
+
+    this.entriesSignature = nextSignature;
     this.render();
     this.observeIntersections();
     this.logMessageCount();
   }
 
   private findMessageElements(): HTMLElement[] {
-    const candidates = Array.from(document.querySelectorAll<HTMLElement>(chatGptSelectors.messages));
+    const root = this.getConversationRoot();
+    const messageContainers = Array.from(root.querySelectorAll<HTMLElement>(chatGptSelectors.messageContainers));
+    const candidates =
+      messageContainers.length > 0
+        ? messageContainers
+        : Array.from(root.querySelectorAll<HTMLElement>(chatGptSelectors.messageAuthors));
     const messageElements: HTMLElement[] = [];
     const seenElements = new Set<HTMLElement>();
 
@@ -149,10 +166,12 @@ export class TimelineManager {
     this.visibleEntries = this.getVisibleEntries();
     this.renderToggleButton();
     this.railElement.replaceChildren();
+    this.nodeButtons.clear();
 
     const fragment = document.createDocumentFragment();
 
-    for (const entry of this.visibleEntries) {
+    for (let visibleIndex = 0; visibleIndex < this.visibleEntries.length; visibleIndex += 1) {
+      const entry = this.visibleEntries[visibleIndex];
       const button = document.createElement("button");
       button.className = [
         "timeline__node",
@@ -164,12 +183,14 @@ export class TimelineManager {
       button.type = "button";
       button.title = entry.item.preview;
       button.dataset.preview = entry.item.preview;
-      button.style.top = this.getNodePosition(entry.item.index);
+      button.dataset.messageId = entry.item.id;
+      button.style.top = this.getNodePosition(visibleIndex);
       button.setAttribute("aria-label", `Jump to message ${entry.item.index + 1}: ${entry.item.preview}`);
       button.addEventListener("click", () => {
         entry.element.scrollIntoView({ behavior: "smooth", block: "start" });
       });
 
+      this.nodeButtons.set(entry.item.id, button);
       fragment.appendChild(button);
     }
 
@@ -180,7 +201,9 @@ export class TimelineManager {
     this.intersectionObserver?.disconnect();
 
     if (this.visibleEntries.length === 0) {
+      const previousActiveMessageId = this.activeMessageId;
       this.activeMessageId = null;
+      this.updateActiveNode(previousActiveMessageId, null);
       return;
     }
 
@@ -197,8 +220,9 @@ export class TimelineManager {
         const messageId = (visibleEntry.target as HTMLElement).getAttribute(MESSAGE_ID_ATTRIBUTE);
 
         if (messageId && messageId !== this.activeMessageId) {
+          const previousActiveMessageId = this.activeMessageId;
           this.activeMessageId = messageId;
-          this.render();
+          this.updateActiveNode(previousActiveMessageId, messageId);
         }
       },
       {
@@ -247,9 +271,7 @@ export class TimelineManager {
     return id;
   }
 
-  private getNodePosition(index: number): string {
-    const visibleIndex = this.visibleEntries.findIndex((entry) => entry.item.index === index);
-
+  private getNodePosition(visibleIndex: number): string {
     if (this.visibleEntries.length <= 1 || visibleIndex < 0) {
       return "50%";
     }
@@ -258,7 +280,7 @@ export class TimelineManager {
   }
 
   private isUsableMessageElement(element: HTMLElement): boolean {
-    const text = this.normalizeText(element.innerText || element.textContent || "");
+    const text = this.normalizeText(element.textContent || "");
     return text.length > 0;
   }
 
@@ -275,7 +297,7 @@ export class TimelineManager {
       element.getAttribute("data-message-author-role"),
       element.getAttribute("data-testid"),
       element.getAttribute("aria-label"),
-      element.innerText?.slice(0, 160)
+      element.textContent?.slice(0, 160)
     ]
       .filter(Boolean)
       .join(" ")
@@ -293,7 +315,7 @@ export class TimelineManager {
   }
 
   private createPreview(element: HTMLElement, index: number): string {
-    const text = this.normalizeText(element.innerText || element.textContent || "")
+    const text = this.normalizeText(element.textContent || "")
       .replace(/^you said:\s*/i, "")
       .replace(/^chatgpt said:\s*/i, "");
 
@@ -311,5 +333,38 @@ export class TimelineManager {
 
     this.lastLoggedCount = this.entries.length;
     console.log(`[ChatGPT Companion] timeline messages: ${this.entries.length}`);
+  }
+
+  private createEntriesSignature(entries: TimelineEntry[]): string {
+    return entries.map((entry) => `${entry.item.id}:${entry.item.role}`).join("|");
+  }
+
+  private getConversationRoot(): Document | HTMLElement {
+    return document.querySelector<HTMLElement>(chatGptSelectors.conversationRoot) ?? document;
+  }
+
+  private attachMutationObserver(): void {
+    const target = document.querySelector<HTMLElement>(chatGptSelectors.conversationRoot) ?? document.body;
+
+    if (!target || target === this.mutationTarget) {
+      return;
+    }
+
+    this.mutationObserver.disconnect();
+    this.mutationObserver.observe(target, {
+      childList: true,
+      subtree: true
+    });
+    this.mutationTarget = target;
+  }
+
+  private updateActiveNode(previousId: string | null, nextId: string | null): void {
+    if (previousId) {
+      this.nodeButtons.get(previousId)?.classList.remove("timeline__node--active");
+    }
+
+    if (nextId) {
+      this.nodeButtons.get(nextId)?.classList.add("timeline__node--active");
+    }
   }
 }

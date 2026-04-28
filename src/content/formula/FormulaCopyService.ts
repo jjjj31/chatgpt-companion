@@ -9,6 +9,7 @@ export class FormulaCopyService {
   private readonly format: FormulaCopyFormat;
   private toastTimer: number | null = null;
   private highlightedFormula: Element | null = null;
+  private viewportFrame: number | null = null;
 
   constructor(format: FormulaCopyFormat = "latex-raw") {
     this.format = format;
@@ -31,6 +32,10 @@ export class FormulaCopyService {
 
     if (this.toastTimer !== null) {
       window.clearTimeout(this.toastTimer);
+    }
+
+    if (this.viewportFrame !== null) {
+      window.cancelAnimationFrame(this.viewportFrame);
     }
 
     document.getElementById(TOAST_ROOT_ID)?.remove();
@@ -82,6 +87,10 @@ export class FormulaCopyService {
       return;
     }
 
+    if (formulaElement === this.highlightedFormula) {
+      return;
+    }
+
     this.highlightedFormula = formulaElement;
     this.showHighlight(formulaElement);
   };
@@ -105,7 +114,17 @@ export class FormulaCopyService {
       return;
     }
 
-    this.showHighlight(this.highlightedFormula);
+    if (this.viewportFrame !== null) {
+      return;
+    }
+
+    this.viewportFrame = window.requestAnimationFrame(() => {
+      this.viewportFrame = null;
+
+      if (this.highlightedFormula) {
+        this.showHighlight(this.highlightedFormula);
+      }
+    });
   };
 
   private findFormulaElement(target: Element): Element | null {

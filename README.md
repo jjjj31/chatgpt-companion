@@ -15,7 +15,7 @@ This project is a clean reimplementation inspired by extension architecture patt
 
 ## Screenshots
 
-Screenshots should be added before publishing:
+Optional screenshot paths:
 
 - `docs/screenshots/timeline.png`
 - `docs/screenshots/formula-copy.png`
@@ -50,7 +50,7 @@ npm run build
 Key files:
 
 - `manifest.json`: Chrome Manifest V3 config.
-- `src/content/index.tsx`: content script entry.
+- `src/content/index.ts`: content script entry.
 - `src/content/timeline/TimelineManager.ts`: conversation timeline.
 - `src/content/formula/FormulaCopyService.ts`: LaTeX copy service.
 - `src/content/selectors.ts`: ChatGPT DOM adapter selectors.
